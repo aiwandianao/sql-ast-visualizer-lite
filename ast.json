@@ -1,0 +1,498 @@
+{
+  "type": "query_analysis",
+  "description": "SQL查询分析结果",
+  "children": [
+    {
+      "type": "select_statement",
+      "description": "SQL查询语句的抽象语法树表示",
+      "children": [
+        {
+          "type": "select_expression_list",
+          "children": [
+            {
+              "type": "select_item_list",
+              "children": [
+                {
+                  "type": "select_item",
+                  "children": [
+                    {
+                      "type": "column_reference",
+                      "column_name": "id",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "type": "select_item",
+                  "children": [
+                    {
+                      "type": "column_reference",
+                      "column_name": "name",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table_references",
+          "children": [
+            {
+              "type": "from_clause",
+              "children": [
+                {
+                  "type": "table_reference",
+                  "table_name": "users",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "joined_table",
+          "children": [
+            {
+              "type": "JOIN",
+              "children": [
+                {
+                  "type": "join_type",
+                  "value": "LEFT",
+                  "children": []
+                },
+                {
+                  "type": "keyword",
+                  "value": "JOIN",
+                  "children": []
+                },
+                {
+                  "type": "table_reference",
+                  "table_name": "orders",
+                  "children": []
+                },
+                {
+                  "type": "ON",
+                  "children": [
+                    {
+                      "type": "keyword",
+                      "value": "ON",
+                      "children": []
+                    },
+                    {
+                      "type": "join_condition",
+                      "operator": "=",
+                      "children": [
+                        {
+                          "type": "qualified_column",
+                          "table": "users",
+                          "column": "id",
+                          "children": []
+                        },
+                        {
+                          "type": "qualified_column",
+                          "table": "orders",
+                          "column": "user_id",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "where_expression",
+          "children": [
+            {
+              "type": "where_clause",
+              "children": [
+                {
+                  "type": "logical_operation",
+                  "operator": "AND",
+                  "children": [
+                    {
+                      "type": "logical_operation",
+                      "operator": "AND",
+                      "children": [
+                        {
+                          "type": "comparison",
+                          "operator": ">",
+                          "children": [
+                            {
+                              "type": "column",
+                              "value": "age",
+                              "children": []
+                            },
+                            {
+                              "type": "literal",
+                              "value": "18",
+                              "data_type": "INTEGER",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "type": "comparison",
+                          "operator": "=",
+                          "children": [
+                            {
+                              "type": "column",
+                              "value": "name",
+                              "children": []
+                            },
+                            {
+                              "type": "literal",
+                              "value": "'张三'",
+                              "data_type": "STRING",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null_check",
+                      "operator": "IS NULL",
+                      "children": [
+                        {
+                          "type": "qualified_column",
+                          "table": "orders",
+                          "column": "id",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group_by_expression",
+          "children": [
+            {
+              "type": "GROUP_BY",
+              "children": [
+                {
+                  "type": "keyword",
+                  "value": "GROUP BY",
+                  "children": []
+                },
+                {
+                  "type": "group_list",
+                  "children": [
+                    {
+                      "type": "column",
+                      "value": "id",
+                      "children": []
+                    },
+                    {
+                      "type": "column",
+                      "value": "name",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "having_expression",
+          "children": [
+            {
+              "type": "HAVING",
+              "children": [
+                {
+                  "type": "keyword",
+                  "value": "HAVING",
+                  "children": []
+                },
+                {
+                  "type": "comparison",
+                  "operator": "=",
+                  "children": [
+                    {
+                      "type": "function_call",
+                      "function_name": "count",
+                      "children": [
+                        {
+                          "type": "wildcard",
+                          "value": "*",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "literal",
+                      "value": "0",
+                      "data_type": "INTEGER",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "execution_plan",
+      "description": "SQL查询的逻辑执行计划",
+      "children": [
+        {
+          "type": "table_scan",
+          "execution_order": 1,
+          "description": "扫描基础表，建立工作集",
+          "children": [
+            {
+              "type": "from_clause",
+              "children": [
+                {
+                  "type": "table_reference",
+                  "table_name": "users",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "join_operation",
+          "execution_order": 2,
+          "description": "执行表连接操作",
+          "children": [
+            {
+              "type": "JOIN",
+              "children": [
+                {
+                  "type": "join_type",
+                  "value": "LEFT",
+                  "children": []
+                },
+                {
+                  "type": "keyword",
+                  "value": "JOIN",
+                  "children": []
+                },
+                {
+                  "type": "table_reference",
+                  "table_name": "orders",
+                  "children": []
+                },
+                {
+                  "type": "ON",
+                  "children": [
+                    {
+                      "type": "keyword",
+                      "value": "ON",
+                      "children": []
+                    },
+                    {
+                      "type": "join_condition",
+                      "operator": "=",
+                      "children": [
+                        {
+                          "type": "qualified_column",
+                          "table": "users",
+                          "column": "id",
+                          "children": []
+                        },
+                        {
+                          "type": "qualified_column",
+                          "table": "orders",
+                          "column": "user_id",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "filter_operation",
+          "execution_order": 3,
+          "description": "过滤不符合条件的行",
+          "children": [
+            {
+              "type": "where_clause",
+              "children": [
+                {
+                  "type": "logical_operation",
+                  "operator": "AND",
+                  "children": [
+                    {
+                      "type": "logical_operation",
+                      "operator": "AND",
+                      "children": [
+                        {
+                          "type": "comparison",
+                          "operator": ">",
+                          "children": [
+                            {
+                              "type": "column",
+                              "value": "age",
+                              "children": []
+                            },
+                            {
+                              "type": "literal",
+                              "value": "18",
+                              "data_type": "INTEGER",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "type": "comparison",
+                          "operator": "=",
+                          "children": [
+                            {
+                              "type": "column",
+                              "value": "name",
+                              "children": []
+                            },
+                            {
+                              "type": "literal",
+                              "value": "'张三'",
+                              "data_type": "STRING",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null_check",
+                      "operator": "IS NULL",
+                      "children": [
+                        {
+                          "type": "qualified_column",
+                          "table": "orders",
+                          "column": "id",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group_operation",
+          "execution_order": 4,
+          "description": "按指定列分组数据",
+          "children": [
+            {
+              "type": "GROUP_BY",
+              "children": [
+                {
+                  "type": "keyword",
+                  "value": "GROUP BY",
+                  "children": []
+                },
+                {
+                  "type": "group_list",
+                  "children": [
+                    {
+                      "type": "column",
+                      "value": "id",
+                      "children": []
+                    },
+                    {
+                      "type": "column",
+                      "value": "name",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "select_operation",
+          "execution_order": 5,
+          "description": "选择指定的列或表达式",
+          "children": [
+            {
+              "type": "select_item_list",
+              "children": [
+                {
+                  "type": "select_item",
+                  "children": [
+                    {
+                      "type": "column_reference",
+                      "column_name": "id",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "type": "select_item",
+                  "children": [
+                    {
+                      "type": "column_reference",
+                      "column_name": "name",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group_filter_operation",
+          "execution_order": 6,
+          "description": "过滤分组后的结果",
+          "children": [
+            {
+              "type": "HAVING",
+              "children": [
+                {
+                  "type": "keyword",
+                  "value": "HAVING",
+                  "children": []
+                },
+                {
+                  "type": "comparison",
+                  "operator": "=",
+                  "children": [
+                    {
+                      "type": "function_call",
+                      "function_name": "count",
+                      "children": [
+                        {
+                          "type": "wildcard",
+                          "value": "*",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "literal",
+                      "value": "0",
+                      "data_type": "INTEGER",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

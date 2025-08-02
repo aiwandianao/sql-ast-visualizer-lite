@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 语法树可视化工具</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .sql-input-section {
+            margin-bottom: 15px;
+        }
+        
+        .sql-input-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        #sql-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 10px;
+        }
+        
+        #sql-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0,123,255,0.3);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .view-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 10px;
+        }
+        
+        .view-toggle label {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .view-toggle select {
+            padding: 6px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        
+        .view-toggle select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .info-section {
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .ast-explanation h3 {
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .ast-explanation p {
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .explanation-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .explanation-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .explanation-item strong {
+            display: block;
+            color: #2c3e50;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .explanation-item span {
+            color: #6c757d;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .parse-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tree-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .view-mode-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .view-mode-selector label {
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+            font-size: 13px;
+        }
+        
+        .radio-option:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .radio-option input[type="radio"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .radio-option input[type="radio"]:checked + span {
+            color: #007bff;
+            font-weight: 600;
+        }
+        
+        .radio-option span {
+            color: #495057;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+        
+        #tree-container {
+            width: 100%;
+            height: 600px;
+            overflow: auto;
+            position: relative;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node circle {
+            fill: #fff;
+            stroke: #4a90e2;
+            stroke-width: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .node.selected circle {
+            fill: #4a90e2;
+            stroke: #2c5aa0;
+            stroke-width: 3px;
+        }
+        
+        .node:hover circle {
+            fill: #e3f2fd;
+            stroke: #1976d2;
+            stroke-width: 3px;
+        }
+        
+        .node text {
+            font: 12px sans-serif;
+            fill: #333;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        
+        .node.selected text {
+            fill: #333;
+            font-weight: bold;
+        }
+        
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+            transition: stroke 0.3s ease;
+        }
+        
+        .link.highlighted {
+            stroke: #4a90e2;
+            stroke-width: 3px;
+        }
+        
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 20px;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .info-panel h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 8px;
+        }
+        
+        .info-item {
+            margin-bottom: 10px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            display: inline-block;
+            width: 80px;
+        }
+        
+        .info-value {
+            color: #333;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a90e2;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SQL 语法树可视化工具</h1>
+            <p>直观理解 SQL 解析过程，查看抽象语法树结构</p>
+        </div>
+        
+        <div class="info-section">
+            <div class="ast-explanation">
+                <h3>📖 什么是 AST（抽象语法树）？</h3>
+                <p><strong>AST (Abstract Syntax Tree)</strong> 是编译器将源代码转换为结构化表示的中间形式。对于SQL语句，AST展示了查询的语法结构，帮助理解数据库如何解析和处理你的SQL代码。</p>
+                <div class="explanation-grid">
+                    <div class="explanation-item">
+                        <strong>🌳 语法结构</strong>
+                        <span>展示SQL语句的层次化语法组织</span>
+                    </div>
+                    <div class="explanation-item">
+                        <strong>⚡ 执行计划</strong>
+                        <span>显示数据库引擎的实际执行顺序</span>
+                    </div>
+                    <div class="explanation-item">
+                        <strong>🔍 调试助手</strong>
+                        <span>帮助发现SQL语句的结构问题</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="sql-input-section">
+                <label for="sql-input">输入 SQL 语句：</label>
+                <textarea id="sql-input" placeholder="输入您的 SQL 语句，例如：SELECT id, name FROM users LEFT JOIN orders ON users.id = orders.user_id WHERE age > 18;" rows="3"></textarea>
+                <button class="btn" onclick="parseSQL()">🚀 解析 SQL</button>
+            </div>
+            <div class="control-buttons">
+                <div class="view-mode-selector">
+                    <label>可视化模式：</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="viewMode" value="both" checked onchange="switchViewMode()">
+                            <span>完整分析</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="viewMode" value="ast" onchange="switchViewMode()">
+                            <span>语法结构</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="viewMode" value="execution" onchange="switchViewMode()">
+                            <span>执行计划</span>
+                        </label>
+                    </div>
+                </div>
+                <button class="btn secondary" onclick="expandAll()">展开所有节点</button>
+                <button class="btn secondary" onclick="collapseAll()">收起所有节点</button>
+                <button class="btn secondary" onclick="resetZoom()">重置视图</button>
+                <button class="btn secondary" onclick="toggleDetails()">切换详情面板</button>
+            </div>
+        </div>
+        
+        <div id="tree-container">
+            <div class="loading">正在加载 AST 数据...</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="node-count">0</div>
+                <div class="stat-label">节点总数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="depth-count">0</div>
+                <div class="stat-label">最大深度</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="selected-node">无</div>
+                <div class="stat-label">选中节点</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info-panel" id="info-panel">
+        <button class="close-btn" onclick="closeInfoPanel()">&times;</button>
+        <h3>节点详情</h3>
+        <div id="node-details">
+            <div class="info-item">
+                <span class="info-label">使用说明:</span>
+                <span class="info-value">点击树形图中的节点查看详细信息</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">功能提示:</span>
+                <span class="info-value">• 点击节点可展开/收起子节点<br>• 拖拽可移动视图<br>• 滚轮可缩放</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let treeData = null;
+        let svg = null;
+        let g = null;
+        let tree = null;
+        let root = null;
+        let selectedNode = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAST();
+        });
+        
+        function loadAST() {
+            // 移除文件加载功能，改为显示默认示例
+            const defaultSQL = `SELECT id, name FROM users 
+LEFT JOIN orders ON users.id = orders.user_id 
+WHERE age > 18 AND name = '张三' AND orders.id IS NULL 
+GROUP BY id, name 
+HAVING count(*) = 0;`;
+            parseClientSide(defaultSQL);
+        }
+        
+        function showError(message) {
+            document.getElementById('tree-container').innerHTML = 
+                `<div class="error-message">${message}</div>`;
+        }
+        
+        function initializeTree() {
+            // 清空容器
+            document.getElementById('tree-container').innerHTML = '';
+            
+            // 根据视图模式过滤数据
+            const selectedMode = document.querySelector('input[name="viewMode"]:checked');
+            const viewMode = selectedMode ? selectedMode.value : 'both';
+            let displayData = treeData;
+            
+            if (viewMode === 'ast' && treeData.type === 'query_analysis') {
+                // 仅显示AST部分
+                displayData = treeData.children.find(child => child.type === 'select_statement') || treeData;
+            } else if (viewMode === 'execution' && treeData.type === 'query_analysis') {
+                // 仅显示执行计划部分
+                displayData = treeData.children.find(child => child.type === 'execution_plan') || treeData;
+            }
+            
+            // 设置尺寸
+            const container = document.getElementById('tree-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // 创建SVG
+            svg = d3.select('#tree-container')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            // 添加缩放功能
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on('zoom', function(event) {
+                    g.attr('transform', event.transform);
+                });
+            
+            svg.call(zoom);
+            
+            // 创建主组
+            g = svg.append('g')
+                .attr('transform', 'translate(50,50)');
+            
+            // 创建树布局
+            tree = d3.tree().size([height - 100, width - 200]);
+            
+            // 处理数据
+            root = d3.hierarchy(displayData);
+            root.x0 = (height - 100) / 2;
+            root.y0 = 0;
+            
+            // 初始折叠除了根节点的所有节点
+            if (root.children) {
+                root.children.forEach(collapse);
+            }
+            
+            update(root);
+        }
+        
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+        
+        function expand(d) {
+            if (d._children) {
+                d.children = d._children;
+                d.children.forEach(expand);
+                d._children = null;
+            }
+        }
+        
+        function update(source) {
+            // 计算新的树布局
+            const treeData = tree(root);
+            const nodes = treeData.descendants();
+            const links = treeData.descendants().slice(1);
+            
+            // 标准化固定深度
+            nodes.forEach(function(d) {
+                d.y = d.depth * 180;
+            });
+            
+            // 更新节点
+            const node = g.selectAll('g.node')
+                .data(nodes, function(d) { return d.id || (d.id = ++i); });
+            
+            // 进入新节点
+            const nodeEnter = node.enter().append('g')
+                .attr('class', 'node')
+                .attr('transform', function(d) {
+                    return 'translate(' + source.y0 + ',' + source.x0 + ')';
+                })
+                .on('click', click)
+                .on('mouseover', mouseover)
+                .on('mouseout', mouseout);
+            
+            // 添加圆圈
+            nodeEnter.append('circle')
+                .attr('r', 1e-6)
+                .style('fill', function(d) {
+                    return d._children ? '#4a90e2' : '#fff';
+                });
+            
+            // 添加文本
+            nodeEnter.append('text')
+                .attr('dy', '.35em')
+                .attr('x', function(d) {
+                    return d.children || d._children ? -13 : 13;
+                })
+                .attr('text-anchor', function(d) {
+                    return d.children || d._children ? 'end' : 'start';
+                })
+                .text(function(d) {
+                    return getNodeLabel(d.data);
+                })
+                .style('fill-opacity', 1e-6);
+            
+            // 更新现有节点
+            const nodeUpdate = nodeEnter.merge(node);
+            
+            nodeUpdate.transition()
+                .duration(750)
+                .attr('transform', function(d) {
+                    return 'translate(' + d.y + ',' + d.x + ')';
+                });
+            
+            nodeUpdate.select('circle')
+                .attr('r', 8)
+                .style('fill', function(d) {
+                    return d._children ? '#4a90e2' : '#fff';
+                })
+                .style('stroke', '#4a90e2')
+                .style('stroke-width', '2px')
+                .style('display', 'block')
+                .attr('cursor', 'pointer');
+            
+            nodeUpdate.select('text')
+                .style('fill-opacity', 1)
+                .attr('x', function(d) {
+                    return d.children || d._children ? -13 : 13;
+                })
+                .attr('text-anchor', function(d) {
+                    return d.children || d._children ? 'end' : 'start';
+                })
+                .text(function(d) {
+                    return getNodeLabel(d.data);
+                })
+                .style('display', 'block');
+            
+            // 移除退出的节点
+            const nodeExit = node.exit().transition()
+                .duration(750)
+                .attr('transform', function(d) {
+                    return 'translate(' + source.y + ',' + source.x + ')';
+                })
+                .remove();
+            
+            nodeExit.select('circle')
+                .attr('r', 1e-6);
+            
+            nodeExit.select('text')
+                .style('fill-opacity', 1e-6);
+            
+            // 更新链接
+            const link = g.selectAll('path.link')
+                .data(links, function(d) { return d.id; });
+            
+            // 进入新链接
+            const linkEnter = link.enter().insert('path', 'g')
+                .attr('class', 'link')
+                .attr('d', function(d) {
+                    const o = {x: source.x0, y: source.y0};
+                    return diagonal(o, o);
+                });
+            
+            // 更新现有链接
+            const linkUpdate = linkEnter.merge(link);
+            
+            linkUpdate.transition()
+                .duration(750)
+                .attr('d', function(d) {
+                    return diagonal(d, d.parent);
+                });
+            
+            // 移除退出的链接
+            const linkExit = link.exit().transition()
+                .duration(750)
+                .attr('d', function(d) {
+                    const o = {x: source.x, y: source.y};
+                    return diagonal(o, o);
+                })
+                .remove();
+            
+            // 存储旧位置用于过渡
+            nodes.forEach(function(d) {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+        
+        function diagonal(s, d) {
+            const path = `M ${s.y} ${s.x}
+                         C ${(s.y + d.y) / 2} ${s.x},
+                           ${(s.y + d.y) / 2} ${d.x},
+                           ${d.y} ${d.x}`;
+            return path;
+        }
+        
+        function click(event, d) {
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else {
+                d.children = d._children;
+                d._children = null;
+            }
+            
+            // 更新选中状态
+            if (selectedNode) {
+                selectedNode.classed('selected', false);
+            }
+            selectedNode = d3.select(this);
+            selectedNode.classed('selected', true);
+            
+            // 显示节点详情
+            showNodeDetails(d.data);
+            
+            update(d);
+            updateStats();
+        }
+        
+        function mouseover(event, d) {
+            // 高亮相关链接
+            highlightPath(d);
+        }
+        
+        function mouseout(event, d) {
+            // 移除高亮
+            g.selectAll('.link').classed('highlighted', false);
+        }
+        
+        function highlightPath(node) {
+            // 高亮从根到当前节点的路径
+            const path = [];
+            let current = node;
+            while (current.parent) {
+                path.push(current);
+                current = current.parent;
+            }
+            
+            g.selectAll('.link')
+                .classed('highlighted', function(d) {
+                    return path.includes(d);
+                });
+        }
+        
+        function getNodeLabel(data) {
+            let label = '';
+            
+            // 显示执行顺序（仅对主要子句显示）
+            if (data.execution_order && typeof data.execution_order === 'number') {
+                label += `[${data.execution_order}] `;
+            }
+            
+            if (data.value) {
+                // 限制值的长度，避免文字过长
+                const value = data.value.length > 20 ? data.value.substring(0, 17) + '...' : data.value;
+                label += `${data.type}: ${value}`;
+            } else {
+                // 对于根节点，使用简化的标签
+                if (data.type === 'SQL_QUERY') {
+                    label = 'SQL查询';
+                } else {
+                    label += data.type || 'unknown';
+                }
+            }
+            
+            return label;
+        }
+        
+        // 新增：解析用户输入的SQL
+        async function parseSQL() {
+            const sqlInput = document.getElementById('sql-input');
+            const sql = sqlInput.value.trim();
+            
+            if (!sql) {
+                alert('请输入SQL语句');
+                return;
+            }
+            
+            try {
+                // 发送SQL到后端解析
+                const response = await fetch('/parse-sql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sql: sql })
+                });
+                
+                if (response.ok) {
+                    const astData = await response.json();
+                    treeData = astData;
+                    initializeTree();
+                    updateStats();
+                } else {
+                    // 如果后端不支持，使用前端简单解析
+                    parseClientSide(sql);
+                }
+                
+            } catch (error) {
+                console.log('后端解析失败，使用前端解析:', error);
+                parseClientSide(sql);
+            }
+        }
+        
+        // 前端简单解析（备用方案）
+        function parseClientSide(sql) {
+            try {
+                const ast = simpleParseSQL(sql);
+                treeData = ast;
+                initializeTree();
+                updateStats();
+            } catch (error) {
+                showError(`SQL解析失败: ${error.message}`);
+            }
+        }
+        
+        // 简化的前端SQL解析器
+        function simpleParseSQL(sql) {
+            const tokens = tokenizeSQL(sql);
+            return parseTokens(tokens);
+        }
+        
+        function tokenizeSQL(sql) {
+            // 简单的词法分析
+            const patterns = [
+                { type: 'SELECT', pattern: /\bSELECT\b/i },
+                { type: 'FROM', pattern: /\bFROM\b/i },
+                { type: 'WHERE', pattern: /\bWHERE\b/i },
+                { type: 'JOIN', pattern: /\bJOIN\b/i },
+                { type: 'LEFT', pattern: /\bLEFT\b/i },
+                { type: 'RIGHT', pattern: /\bRIGHT\b/i },
+                { type: 'INNER', pattern: /\bINNER\b/i },
+                { type: 'ON', pattern: /\bON\b/i },
+                { type: 'GROUP', pattern: /\bGROUP\b/i },
+                { type: 'BY', pattern: /\bBY\b/i },
+                { type: 'HAVING', pattern: /\bHAVING\b/i },
+                { type: 'ORDER', pattern: /\bORDER\b/i },
+                { type: 'LIMIT', pattern: /\bLIMIT\b/i },
+                { type: 'AND', pattern: /\bAND\b/i },
+                { type: 'OR', pattern: /\bOR\b/i },
+                { type: 'IS', pattern: /\bIS\b/i },
+                { type: 'NULL', pattern: /\bNULL\b/i },
+                { type: 'NOT', pattern: /\bNOT\b/i },
+                { type: 'COUNT', pattern: /\bCOUNT\b/i },
+                { type: 'EQ', pattern: /=/ },
+                { type: 'GT', pattern: />/ },
+                { type: 'LT', pattern: /</ },
+                { type: 'COMMA', pattern: /,/ },
+                { type: 'LPAREN', pattern: /\(/ },
+                { type: 'RPAREN', pattern: /\)/ },
+                { type: 'DOT', pattern: /\./ },
+                { type: 'SEMICOLON', pattern: /;/ },
+                { type: 'STRING', pattern: /'[^']*'/ },
+                { type: 'INTEGER', pattern: /\d+/ },
+                { type: 'IDENTIFIER', pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ }
+            ];
+            
+            const tokens = [];
+            let remaining = sql.trim();
+            
+            while (remaining.length > 0) {
+                // 跳过空白字符
+                const whitespace = remaining.match(/^\s+/);
+                if (whitespace) {
+                    remaining = remaining.slice(whitespace[0].length);
+                    continue;
+                }
+                
+                let matched = false;
+                for (const { type, pattern } of patterns) {
+                    const match = remaining.match(new RegExp('^' + pattern.source, pattern.flags));
+                    if (match) {
+                        tokens.push({ type, value: match[0] });
+                        remaining = remaining.slice(match[0].length);
+                        matched = true;
+                        break;
+                    }
+                }
+                
+                if (!matched) {
+                    remaining = remaining.slice(1); // 跳过无法识别的字符
+                }
+            }
+            
+            return tokens;
+        }
+        
+        function parseTokens(tokens) {
+            if (tokens.length === 0) {
+                return { type: 'empty', children: [] };
+            }
+            
+            // 简化解析，创建基本的AST结构
+            const root = {
+                type: 'SQL_QUERY',
+                execution_order: 'FROM→JOIN→WHERE→GROUP BY→HAVING→SELECT→ORDER BY→LIMIT',
+                children: []
+            };
+            
+            let i = 0;
+            const clauses = [];
+            
+            // 查找各个子句
+            while (i < tokens.length) {
+                const token = tokens[i];
+                
+                if (token.type === 'SELECT') {
+                    const selectClause = {
+                        type: 'SELECT',
+                        execution_order: 6,
+                        description: 'SELECT - 列选择',
+                        children: [{ type: 'keyword', value: token.value, children: [] }]
+                    };
+                    clauses.push(selectClause);
+                } else if (token.type === 'FROM') {
+                    const fromClause = {
+                        type: 'FROM',
+                        execution_order: 1,
+                        description: 'FROM - 确定数据源',
+                        children: [{ type: 'keyword', value: token.value, children: [] }]
+                    };
+                    clauses.push(fromClause);
+                } else if (token.type === 'WHERE') {
+                    const whereClause = {
+                        type: 'WHERE',
+                        execution_order: 3,
+                        description: 'WHERE - 数据过滤',
+                        children: [{ type: 'keyword', value: token.value, children: [] }]
+                    };
+                    clauses.push(whereClause);
+                } else if (token.type === 'GROUP') {
+                    const groupClause = {
+                        type: 'GROUP_BY',
+                        execution_order: 4,
+                        description: 'GROUP BY - 数据分组',
+                        children: [{ type: 'keyword', value: 'GROUP BY', children: [] }]
+                    };
+                    clauses.push(groupClause);
+                } else if (token.type === 'HAVING') {
+                    const havingClause = {
+                        type: 'HAVING',
+                        execution_order: 5,
+                        description: 'HAVING - 分组过滤',
+                        children: [{ type: 'keyword', value: token.value, children: [] }]
+                    };
+                    clauses.push(havingClause);
+                }
+                
+                i++;
+            }
+            
+            // 按执行顺序排序
+            clauses.sort((a, b) => (a.execution_order || 0) - (b.execution_order || 0));
+            root.children = clauses;
+            
+            return root;
+        }
+        
+        function showNodeDetails(data) {
+            const panel = document.getElementById('info-panel');
+            const details = document.getElementById('node-details');
+            
+            let html = '';
+            
+            // 基本信息
+            html += `<div class="info-item">
+                        <span class="info-label">类型:</span>
+                        <span class="info-value">${data.type || 'unknown'}</span>
+                     </div>`;
+            
+            if (data.value) {
+                html += `<div class="info-item">
+                            <span class="info-label">值:</span>
+                            <span class="info-value">${data.value}</span>
+                         </div>`;
+            }
+            
+            // 执行顺序信息
+            if (data.execution_order) {
+                html += `<div class="info-item">
+                            <span class="info-label">执行顺序:</span>
+                            <span class="info-value">${data.execution_order}</span>
+                         </div>`;
+            }
+            
+            // 描述信息
+            if (data.description) {
+                html += `<div class="info-item">
+                            <span class="info-label">说明:</span>
+                            <span class="info-value">${data.description}</span>
+                         </div>`;
+            }
+            
+            if (data.data_type) {
+                html += `<div class="info-item">
+                            <span class="info-label">数据类型:</span>
+                            <span class="info-value">${data.data_type}</span>
+                         </div>`;
+            }
+            
+            if (data.operator) {
+                html += `<div class="info-item">
+                            <span class="info-label">操作符:</span>
+                            <span class="info-value">${data.operator}</span>
+                         </div>`;
+            }
+            
+            // 子节点详细信息
+            if (data.children && data.children.length > 0) {
+                html += `<div class="info-item">
+                            <span class="info-label">子节点:</span>
+                            <span class="info-value">${data.children.length} 个</span>
+                         </div>`;
+                
+                // 显示子节点类型
+                const childTypes = data.children.map(child => child.type || 'unknown').join(', ');
+                html += `<div class="info-item">
+                            <span class="info-label">包含:</span>
+                            <span class="info-value">${childTypes}</span>
+                         </div>`;
+            }
+            
+            // SQL语法作用说明
+            const syntaxExplanation = getSyntaxExplanation(data.type);
+            if (syntaxExplanation) {
+                html += `<div class="info-item">
+                            <span class="info-label">语法作用:</span>
+                            <span class="info-value">${syntaxExplanation}</span>
+                         </div>`;
+            }
+            
+            details.innerHTML = html;
+            panel.style.display = 'block';
+            
+            // 更新统计信息
+            document.getElementById('selected-node').textContent = data.type || 'unknown';
+        }
+        
+        function getSyntaxExplanation(nodeType) {
+            const explanations = {
+                'SQL_QUERY': '完整的SQL查询语句，包含所有子句',
+                'SELECT': '选择要返回的列，决定查询结果的结构',
+                'FROM': '指定数据源表，是查询的起点',
+                'WHERE': '过滤行数据，只返回满足条件的记录',
+                'GROUP_BY': '按指定列分组，用于聚合计算',
+                'HAVING': '过滤分组后的结果，类似WHERE但作用于分组',
+                'ORDER_BY': '对结果进行排序',
+                'LIMIT': '限制返回的记录数量',
+                'JOIN': '连接多个表，合并相关数据',
+                'LEFT': 'LEFT JOIN的一部分，保留左表所有记录',
+                'RIGHT': 'RIGHT JOIN的一部分，保留右表所有记录',
+                'INNER': 'INNER JOIN的一部分，只保留匹配的记录',
+                'keyword': 'SQL关键字，定义查询的结构和逻辑',
+                'identifier': '标识符，如表名、列名等',
+                'literal': '字面量值，如字符串、数字等',
+                'operator': '操作符，用于比较和逻辑运算',
+                'function': 'SQL函数，如COUNT、SUM等聚合函数'
+            };
+            
+            return explanations[nodeType] || null;
+        }
+        
+        function closeInfoPanel() {
+            document.getElementById('info-panel').style.display = 'none';
+            if (selectedNode) {
+                selectedNode.classed('selected', false);
+                selectedNode = null;
+            }
+            document.getElementById('selected-node').textContent = '无';
+        }
+        
+        function expandAll() {
+            if (!root) return;
+            
+            function expandNode(d) {
+                if (d._children) {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                if (d.children) {
+                    d.children.forEach(expandNode);
+                }
+            }
+            
+            expandNode(root);
+            // 强制重新计算布局
+            tree(root);
+            update(root);
+            updateStats();
+        }
+        
+        function collapseAll() {
+            if (!root) return;
+            
+            function collapseNode(d) {
+                if (d.children) {
+                    // 先递归处理子节点
+                    d.children.forEach(collapseNode);
+                    // 然后折叠当前节点
+                    d._children = d.children;
+                    d.children = null;
+                }
+            }
+            
+            if (root.children) {
+                root.children.forEach(collapseNode);
+            }
+            // 强制重新计算布局
+            tree(root);
+            update(root);
+            updateStats();
+        }
+        
+        function resetZoom() {
+            if (svg) {
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on('zoom', function(event) {
+                        g.attr('transform', event.transform);
+                    });
+                
+                svg.transition().duration(750).call(
+                    zoom.transform,
+                    d3.zoomIdentity
+                );
+            }
+        }
+        
+        let detailsVisible = true;
+        
+        function toggleDetails() {
+            const infoPanel = document.getElementById('info-panel');
+            const button = document.querySelector('button[onclick="toggleDetails()"]');
+            
+            if (infoPanel.style.display === 'none') {
+                infoPanel.style.display = 'block';
+                button.textContent = '隐藏详情面板';
+                detailsVisible = true;
+            } else {
+                infoPanel.style.display = 'none';
+                button.textContent = '显示详情面板';
+                detailsVisible = false;
+            }
+        }
+        
+        function updateStats() {
+            if (!root) return;
+            
+            // 计算节点总数
+            let nodeCount = 0;
+            function countNodes(node) {
+                nodeCount++;
+                if (node.children) {
+                    node.children.forEach(countNodes);
+                }
+                if (node._children) {
+                    node._children.forEach(countNodes);
+                }
+            }
+            countNodes(root);
+            
+            // 计算最大深度
+            let maxDepth = 0;
+            function calculateDepth(node, depth = 0) {
+                maxDepth = Math.max(maxDepth, depth);
+                if (node.children) {
+                    node.children.forEach(child => calculateDepth(child, depth + 1));
+                }
+                if (node._children) {
+                    node._children.forEach(child => calculateDepth(child, depth + 1));
+                }
+            }
+            calculateDepth(root);
+            
+            document.getElementById('node-count').textContent = nodeCount;
+            document.getElementById('depth-count').textContent = maxDepth;
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <strong>解析错误:</strong> ${message}
+                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: white; cursor: pointer;">×</button>
+            `;
+            
+            // 添加错误样式
+            errorDiv.style.cssText = `
+                background: #dc3545;
+                color: white;
+                padding: 10px 15px;
+                margin: 10px 0;
+                border-radius: 4px;
+                position: relative;
+            `;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(errorDiv, container.firstChild);
+            
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (errorDiv.parentElement) {
+                    errorDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // 页面加载时设置示例SQL
+        window.addEventListener('DOMContentLoaded', function() {
+            const sqlInput = document.getElementById('sql-input');
+            if (sqlInput) {
+                sqlInput.value = `SELECT id, name FROM users 
+LEFT JOIN orders ON users.id = orders.user_id 
+WHERE age > 18 AND name = '张三' AND orders.id IS NULL 
+GROUP BY id, name 
+HAVING count(*) = 0;`;
+            }
+        })
+        
+        // 视图模式切换函数
+         function switchViewMode() {
+             const selectedMode = document.querySelector('input[name="viewMode"]:checked');
+             if (!selectedMode) return;
+             
+             const viewMode = selectedMode.value;
+             
+             // 根据选择的模式调整显示
+             switch(viewMode) {
+                 case 'both':
+                     // 显示AST和执行计划
+                     if (treeData) {
+                         initializeTree();
+                     }
+                     break;
+                 case 'ast':
+                     // 仅显示AST
+                     if (treeData) {
+                         initializeTree();
+                     }
+                     break;
+                 case 'execution':
+                     // 仅显示执行计划
+                     if (treeData) {
+                         initializeTree();
+                     }
+                     break;
+                 default:
+                     if (treeData) {
+                         initializeTree();
+                     }
+             }
+         }
+        
+        // 显示执行计划视图
+        function showExecutionPlan() {
+            const container = document.getElementById('tree-container');
+            container.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #666;">
+                    <h3>SQL执行计划视图</h3>
+                    <p>此功能正在开发中，将显示SQL语句的执行顺序和性能分析</p>
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: left;">
+                        <h4>典型SQL执行顺序：</h4>
+                        <ol>
+                            <li><strong>FROM</strong> - 确定数据源表</li>
+                            <li><strong>JOIN</strong> - 连接相关表</li>
+                            <li><strong>WHERE</strong> - 过滤行数据</li>
+                            <li><strong>GROUP BY</strong> - 数据分组</li>
+                            <li><strong>HAVING</strong> - 分组后过滤</li>
+                            <li><strong>SELECT</strong> - 选择列</li>
+                            <li><strong>ORDER BY</strong> - 结果排序</li>
+                            <li><strong>LIMIT</strong> - 限制结果数量</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 全局变量用于节点ID
+        let i = 0;
+        
+        // 响应式处理
+        window.addEventListener('resize', function() {
+            if (svg) {
+                const container = document.getElementById('tree-container');
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                svg.attr('width', width).attr('height', height);
+                tree.size([height - 100, width - 200]);
+                
+                if (root) {
+                    update(root);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
